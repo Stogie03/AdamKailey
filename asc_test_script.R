@@ -125,7 +125,7 @@ train2date = data.frame(train2[, c("AnimalID", "DateTime")], mon = NA_integer_,
                                                              feb = NA_integer_,
                                                              mar = NA_integer_,
                                                              apr = NA_integer_,
-                                                             may = NA_integer_,
+                                                             may = NA_character_,
                                                              jun = NA_integer_,
                                                              jul = NA_integer_,
                                                              aug = NA_integer_,
@@ -206,8 +206,42 @@ train2date[which(is.na(train2date$night)== TRUE), "night"] = 0
 
 #** Convert Breed to Buckets **#
 
+train2breed = data.frame(train2[, c("AnimalID", "Breed")], stringsAsFactors = FALSE)
 
+train2breed = data.frame(train2breed, mix = substr(train2breed$Breed, 1, unlist(gregexpr('Mix', train2breed$Breed)) - 2),
+                         parenta = substr(train2breed$Breed, 1, do.call('rbind', gregexpr('/', train2breed$Breed))-1),
+                         parentb = NA_character_,
+                         parentc = NA_character_,
+                         stringsAsFactors = FALSE)
 
+train2breed[which(do.call('rbind', list(regexpr('/', train2breed$Breed))) >= 0), "parentb"] = substr(train2breed[which(do.call('rbind', list(regexpr('/', train2breed$Breed))) >= 0), "Breed"],
+                                                                                                do.call('rbind', list(regexpr('/', train2breed[which(do.call('rbind', list(regexpr('/', train2breed$Breed))) >= 0), "Breed"])))+1,
+                                                                                                nchar(train2breed[which(do.call('rbind', list(regexpr('/', train2breed$Breed))) >= 0), "Breed"]))
+
+train2breed[which(do.call('rbind', list(regexpr('/', train2breed$parentb))) >= 0), "parentc"] = substr(train2breed[which(do.call('rbind', list(regexpr('/', train2breed$parentb))) >= 0), "parentb"], 
+                                                                                                 do.call('rbind', list(regexpr('/', train2breed[which(do.call('rbind', list(regexpr('/', train2breed$parentb))) >= 0), "parentb"])))+1, 
+                                                                                                 nchar(train2breed[which(do.call('rbind', list(regexpr('/', train2breed$parentb))) >= 0), "parentb"]))
+train2breed[which(do.call('rbind', list(regexpr('/', train2breed$parentb))) >= 0), "parentb"] = substr(train2breed[which(do.call('rbind', list(regexpr('/', train2breed$parentb))) >= 0), "parentb"],
+                                                                                                  1,
+                                                                                                  do.call('rbind', list(regexpr('/', train2breed[which(do.call('rbind', list(regexpr('/', train2breed$parentb))) >= 0), "parentb"])))-1)
+train2breed[which(train2breed$mix == ""), "mix"] = NA
+train2breed[which(train2breed$parenta == ""), "parenta"] = NA
+
+temp = train2breed[which(is.na(train2breed$parentc) == FALSE),]
+temp2 = train2breed[which(is.na(train2breed$parenta) == FALSE),]
+temp3 = train2breed[which(train2breed$parenta == "Black" | train2breed$parentb == "Black"),]
+temp4 = train2breed[which(is.na(train2breed$mix) == FALSE & is.na(train2breed$parenta) == FALSE),]
+temp5 = train2breed[which(is.na(train2breed$parenta) == FALSE & is.na(train2breed$parentb) == TRUE),]
+
+train2breed[which(train2breed$parenta == "Black"), "parentb"] = NA
+train2breed[which(train2breed$parenta == "Black"), "parenta"] = "Back/Tan Hound"
+train2breed[which(train2breed$parentb == "Black"), "parentc"] = NA
+train2breed[which(train2breed$parentb == "Black"), "parentb"] = "Back/Tan Hound"
+train2breed[which(is.na(train2breed$parentb) == TRUE & is.na(train2breed$parentc) == FALSE), "parentb"] = train2breed[which(is.na(train2breed$parentb) == TRUE & is.na(train2breed$parentc) == FALSE), "parentc"]
+train2breed[which(is.na(train2breed$parentb) == FALSE & train2breed$parentb == train2breed$parentc), "parentc"] = NA
+train2breed[which(is.na(train2breed$parenta) == FALSE & is.na(train2breed$parentb) == TRUE), "parenta"] = NA
+
+train2breed = train2breed[,c("AnimalID", "Breed", "mix", "parenta", "parentb")]
 
 
 #** Convert Color to Buckets **#
