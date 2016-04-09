@@ -206,12 +206,12 @@ train2date[which(is.na(train2date$night)== TRUE), "night"] = 0
 
 #** Convert Breed to Buckets **#
 
-train2breed = data.frame(train2[, c("AnimalID", "Breed")], stringsAsFactors = FALSE)
-
-train2breed = data.frame(train2breed, mix = substr(train2breed$Breed, 1, unlist(gregexpr('Mix', train2breed$Breed)) - 2),
+train2breed = data.frame(train2[, c("AnimalID", "Breed")], 
+                         mix = substr(train2breed$Breed, 1, unlist(gregexpr('Mix', train2breed$Breed)) - 2),
                          parenta = substr(train2breed$Breed, 1, do.call('rbind', gregexpr('/', train2breed$Breed))-1),
                          parentb = NA_character_,
                          parentc = NA_character_,
+                         pure = NA_integer_,
                          stringsAsFactors = FALSE)
 
 train2breed[which(do.call('rbind', list(regexpr('/', train2breed$Breed))) >= 0), "parentb"] = substr(train2breed[which(do.call('rbind', list(regexpr('/', train2breed$Breed))) >= 0), "Breed"],
@@ -241,8 +241,45 @@ train2breed[which(is.na(train2breed$parentb) == TRUE & is.na(train2breed$parentc
 train2breed[which(is.na(train2breed$parentb) == FALSE & train2breed$parentb == train2breed$parentc), "parentc"] = NA
 train2breed[which(is.na(train2breed$parenta) == FALSE & is.na(train2breed$parentb) == TRUE), "parenta"] = NA
 
-train2breed = train2breed[,c("AnimalID", "Breed", "mix", "parenta", "parentb")]
+train2breed = train2breed[,c("AnimalID", "Breed", "mix", "parenta", "parentb", "pure")]
 
+train2breed[which(is.na(train2breed$mix) == TRUE & is.na(train2breed$parenta) == TRUE & is.na(train2breed$parentb) == TRUE), "pure"] = 1
+train2breed[which(is.na(train2breed$pure) == TRUE), "pure"] = 0
+train2breed[which(train2breed$Breed %in% c("Domestic Shorthair", "Domestic Longhair", "Domestic Medium Hair")), "pure"] = 0
+temp = train2breed[which(train2breed$pure == 1),]
+temp = data.frame(unique(temp[,"Breed"]))
+
+
+bbpure = aggregate(pure ~ Breed, data = train2breed[which(train2breed$pure == 1),], sum)
+bbmix  = aggregate(AnimalID ~ mix, data = train2breed[which(is.na(train2breed$mix) == FALSE),], length)
+colnames(bbmix) = c("Breed", "mix")
+bbpa = aggregate(AnimalID ~ parenta, data = train2breed[which(is.na(train2breed$parenta) == FALSE & is.na(train2breed$parentb) == FALSE),], length)
+colnames(bbpa) = c("Breed", "parent2")
+bbpb = aggregate(AnimalID ~ parentb, data = train2breed[which(is.na(train2breed$parenta) == FALSE & is.na(train2breed$parentb) == FALSE),], length)
+colnames(bbpb) = c("Breed", "parent2")
+bbpab = aggregate(parent2 ~ Breed, data = data.frame(rbind(bbpa, bbpb), stringsAsFactors = FALSE), sum)
+rm(bbpa, bbpb)
+bbdom = aggregate(AnimalID ~ Breed, data = train2breed[which(train2breed$Breed %in% c("Domestic Shorthair", "Domestic Longhair", "Domestic Medium Hair")),], length)
+colnames(bbdom) = c("Breed", "domestic")
+
+bb1 = merge(bbpure, bbpab, by = "Breed", all = TRUE)
+bb2 = merge(bb1, bbmix, by = "Breed", all = TRUE)
+bb3 = merge(bb2, bbdom, by = "Breed", all = TRUE)
+
+bb3[which(is.na(bb3$pure) == TRUE), "pure"] = 0
+bb3[which(is.na(bb3$parent2) == TRUE), "parent2"] = 0
+bb3[which(is.na(bb3$mix) == TRUE), "mix"] = 0
+bb3[which(is.na(bb3$domestic) == TRUE), "domestic"] = 0
+
+temp = aggregate(cbind(pure, parent2, mix, domestic) ~ 1, data = bb3, sum)
+
+
+temp = train2breed[which(is.na(train2breed$parentb) == FALSE & train2breed$pure == 1),]
+
+
+
+
+rm(temp, temp2, temp3, temp4, temp5)
 
 #** Convert Color to Buckets **#
 
