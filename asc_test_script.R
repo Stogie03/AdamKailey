@@ -216,8 +216,8 @@ train2date[which(is.na(train2date$night)== TRUE), "night"] = 0
 #** Convert Breed to Buckets **#
 
 train2breed = data.frame(train2[, c("AnimalID", "Breed")], 
-                         mix = substr(train2breed$Breed, 1, unlist(gregexpr('Mix', train2breed$Breed)) - 2),
-                         parenta = substr(train2breed$Breed, 1, do.call('rbind', gregexpr('/', train2breed$Breed))-1),
+                         mix = substr(train2$Breed, 1, unlist(gregexpr('Mix', train2$Breed)) - 2),
+                         parenta = substr(train2$Breed, 1, do.call('rbind', gregexpr('/', train2$Breed))-1),
                          parentb = NA_character_,
                          parentc = NA_character_,
                          pure = NA_integer_,
@@ -283,8 +283,8 @@ bb3[which(is.na(bb3$domestic) == TRUE), "domestic"] = 0
 temp = aggregate(cbind(pure, parent2, mix, domestic) ~ 1, data = bb3, sum)
 
 
-
-
+bb4 = data.frame(Breed = bb3$Breed, bcount = bb3$pure + bb3$parent2 + bb3$mix + bb3$domestic, stringsAsFactors = FALSE)
+bb4 = bb4[order(bb4$bcount, decreasing = TRUE),]
 
 
 
