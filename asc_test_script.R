@@ -32,6 +32,15 @@ train  = read.csv("train.csv.gz", stringsAsFactors=FALSE)
 
 train2 = train
 
+
+#** Recode the dependent variable for Stokesy **#
+
+train2dep = data.frame(train2[, c("AnimalID", "OutcomeType")], stringsAsFactors = FALSE)
+class = data.frame(OutcomeType = unique(train2dep$OutcomeType), dependent = 0:(length(unique(train2dep$OutcomeType)) - 1), stringsAsFactors = FALSE)
+train2dep = merge(train2dep, class, by = "OutcomeType", all.x = TRUE)
+
+
+
 #** Convert age to days **#
 
 train2age = data.frame(train2[, c("AnimalID", "AgeuponOutcome")], age = NA_integer_, stringsAsFactors = FALSE)
@@ -274,18 +283,30 @@ bb3[which(is.na(bb3$domestic) == TRUE), "domestic"] = 0
 temp = aggregate(cbind(pure, parent2, mix, domestic) ~ 1, data = bb3, sum)
 
 
-temp = train2breed[which(is.na(train2breed$parentb) == FALSE & train2breed$pure == 1),]
 
 
 
 
-rm(temp, temp2, temp3, temp4, temp5)
+
+rm(temp, temp2, temp3, temp4, temp5, bb1, bb2, bbdom, bbmix, bbpab, bbpure)
 
 #** Convert Color to Buckets **#
 
 
 
 
+
+#************************************#
+#** Merge Cleaned Data for Stokesy **#
+#************************************#
+
+t3a    = merge(train2dep[, !names(train2dep) == "OutcomeType"], train2type[, !names(train2type) == "AnimalType"],     by = "AnimalID")
+t3b    = merge(t3a,                                             train2name[, !names(train2name) == "Name"],           by = "AnimalID")
+t3c    = merge(t3b,                                             train2age[,  !names(train2age)  == "AgeuponOutcome"], by = "AnimalID")
+t3d    = merge(t3c,                                             train2sex[,  !names(train2sex)  == "SexuponOutcome"], by = "AnimalID")
+train3 = merge(t3d,                                             train2date[, !names(train2date) == "DateTime"],       by = "AnimalID")
+ 
+rm(t3a, t3b, t3c, t3d)
 
 
 
