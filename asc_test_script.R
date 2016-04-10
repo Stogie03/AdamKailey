@@ -26,6 +26,7 @@ train  = read.csv("train.csv.gz", stringsAsFactors=FALSE)
 #** User Parameters **#
 
 bcount = 200     # minimum occurrences of breed within training set for breed to become an independent variable
+ccount = 200     # minimum occurrences of color within training set for color to become an independent variable
 
 #**************************#
 #** Data Prep            **#
@@ -138,7 +139,7 @@ train2date = data.frame(train2[, c("AnimalID", "DateTime")], mon = NA_integer_,
                                                              feb = NA_integer_,
                                                              mar = NA_integer_,
                                                              apr = NA_integer_,
-                                                             may = NA_character_,
+                                                             may = NA_integer_,
                                                              jun = NA_integer_,
                                                              jul = NA_integer_,
                                                              aug = NA_integer_,
@@ -289,7 +290,7 @@ temp = aggregate(cbind(pure, parent2, mix, domestic) ~ 1, data = bb3, sum)
 
 bb4 = data.frame(Breed = bb3$Breed, bcount = bb3$pure + bb3$parent2 + bb3$mix + bb3$domestic, stringsAsFactors = FALSE)
 bb4 = bb4[order(bb4$bcount, decreasing = TRUE),]
-bbclass = data.frame(Breed = c(bb4[which(bb4$bcount >= bcount), "Breed"], "Other"), bclass = NA_character_, stringsAsFactors = FALSE)
+bbclass = data.frame(Breed = c(bb4[which(bb4$bcount >= bcount), "Breed"], "OtherBreed"), bclass = NA_character_, stringsAsFactors = FALSE)
 bbclass$bclass = gsub(" ", "", bbclass$Breed)
 
 train2breed = data.frame(train2breed, matrix(NA_integer_, ncol = length(bbclass$bclass), nrow = length(train2breed$AnimalID)), stringsAsFactors = FALSE)
@@ -307,7 +308,7 @@ for (i in (ncol(train2breed) - length(bbclass$Breed) + 1):ncol(train2breed))
   train2breed[which(is.na(train2breed[,i]) == TRUE),i] = 0
 }
 
-train2breed[which(apply(train2breed[,(ncol(train2breed) - length(bbclass$Breed) + 1):ncol(train2breed)], 1, sum) == 0), "Other"] = 1
+train2breed[which(apply(train2breed[,(ncol(train2breed) - length(bbclass$Breed) + 1):ncol(train2breed)], 1, sum) == 0), "OtherBreed"] = 1
 
 
 rm(temp, temp2, temp3, temp4, temp5, bb1, bb2, bbdom, bbmix, bbpab, bbpure, i, bb3, bb4, bbclass)
@@ -319,6 +320,90 @@ rm(temp, temp2, temp3, temp4, temp5, bb1, bb2, bbdom, bbmix, bbpab, bbpure, i, b
 
 #** Convert Color to Buckets **#
 
+train2color = data.frame(train2[, c("AnimalID", "AnimalType", "Color")], 
+                         color1 = substr(train2$Color, 1, do.call('rbind', gregexpr('/', train2$Color)) - 1),
+                         color2 = NA_character_,
+                         solid = NA_integer_,
+                         brindle = NA_integer_,
+                         tabby = NA_integer_,
+                         tricolor = NA_integer_,
+                         point = NA_integer_,
+                         merle = NA_integer_,
+                         stringsAsFactors = FALSE)
+
+train2color[which(do.call('rbind', list(regexpr('/', train2color$Color))) >= 0), "color2"] = substr(train2color[which(do.call('rbind', list(regexpr('/', train2color$Color))) >= 0), "Color"],
+                                                                                                     do.call('rbind', list(regexpr('/', train2color[which(do.call('rbind', list(regexpr('/', train2color$Color))) >= 0), "Color"])))+1,
+                                                                                                     nchar(train2color[which(do.call('rbind', list(regexpr('/', train2color$Color))) >= 0), "Color"]))
+
+
+
+train2color[which(train2color$color1 == ""), "solid"] = 1
+train2color[which(is.na(train2color$solid) == TRUE), "solid"] = 0
+train2color[which(do.call('rbind', list(regexpr('Tabby', train2color$Color))) >= 0), "solid"] = 0
+train2color[which(do.call('rbind', list(regexpr('Brindle', train2color$Color))) >= 0), "solid"] = 0
+train2color[which(do.call('rbind', list(regexpr('Tabby', train2color$Color))) >= 0), "tabby"] = 1
+train2color[which(do.call('rbind', list(regexpr('Brindle', train2color$Color))) >= 0), "brindle"] = 1
+train2color[which(is.na(train2color$tabby) == TRUE), "tabby"] = 0
+train2color[which(is.na(train2color$brindle) == TRUE), "brindle"] = 0
+train2color[which(do.call('rbind', list(regexpr('Tricolor', train2color$Color))) >= 0), "solid"] = 0
+train2color[which(do.call('rbind', list(regexpr('Tricolor', train2color$Color))) >= 0), "tricolor"] = 1
+train2color[which(is.na(train2color$tricolor) == TRUE), "tricolor"] = 0
+train2color[which(do.call('rbind', list(regexpr('Point', train2color$Color))) >= 0), "solid"] = 0
+train2color[which(do.call('rbind', list(regexpr('Point', train2color$Color))) >= 0), "point"] = 1
+train2color[which(is.na(train2color$point) == TRUE), "point"] = 0
+train2color[which(do.call('rbind', list(regexpr('Merle', train2color$Color))) >= 0), "solid"] = 0
+train2color[which(do.call('rbind', list(regexpr('Merle', train2color$Color))) >= 0), "merle"] = 1
+train2color[which(is.na(train2color$merle) == TRUE), "merle"] = 0
+
+temp = train2color[which(train2color$solid == 1),]
+
+cbsolid = aggregate(solid ~ Color, data = train2color[which(train2color$solid == 1),], sum)
+cbc1 = aggregate(AnimalID ~ color1, data = train2color[which(train2color$color1 != ""),], length)
+colnames(cbc1) = c("Color", "multi")
+cbc2 = aggregate(AnimalID ~ color2, data = train2color[which(is.na(train2color$color2) == FALSE),], length)
+colnames(cbc2) = c("Color", "multi")
+cbmulti = aggregate(multi ~ Color, data = data.frame(rbind(cbc1, cbc2), stringsAsFactors = FALSE), sum)
+cbbrindle = aggregate(brindle ~ Color, data = train2color[which(train2color$brindle == 1),], sum)
+cbtabby = aggregate(tabby ~ Color, data = train2color[which(train2color$tabby == 1),], sum)
+cbtricolor = aggregate(tricolor ~ Color, data = train2color[which(train2color$tricolor == 1),], sum)
+cbpoint = aggregate(point ~ Color, data = train2color[which(train2color$point == 1),], sum)
+cbmerle = aggregate(merle ~ Color, data = train2color[which(train2color$merle == 1),], sum)
+
+
+cbsummary = data.frame(color = c(train2color[which(train2color$color1 != ""), "color1"],
+                                 train2color[which(train2color$color1 != ""), "color2"],
+                                 train2color[which(train2color$color1 == ""), "Color"]), 
+                       flag  = 1, stringsAsFactors = FALSE)
+cbsummary = aggregate(flag ~ color, data = cbsummary, sum)
+cbsummary = cbsummary[order(cbsummary$flag, decreasing = TRUE),]
+
+
+cbclass = data.frame(Color = c(cbsummary[which(cbsummary$flag >= ccount), "color"], "OtherColor"), cclass = NA_character_, stringsAsFactors = FALSE)
+cbclass$cclass = gsub(" ", "", cbclass$Color)
+
+train2color = data.frame(train2color, matrix(NA_integer_, ncol = length(cbclass$cclass), nrow = length(train2color$AnimalID)), stringsAsFactors = FALSE)
+colnames(train2color)[(ncol(train2color) - length(cbclass$Color) + 1):ncol(train2color)] = cbclass$cclass
+
+for (i in (ncol(train2color) - length(cbclass$Color) + 1):ncol(train2color))
+{
+  train2color[which(do.call('rbind', list(regexpr(names(train2color)[i], gsub(" ", "", train2color$Color)))) >= 0), i] = 1
+}
+for (i in (ncol(train2color) - length(cbclass$Color) + 1):ncol(train2color))
+{
+  train2color[which(is.na(train2color[,i]) == TRUE),i] = 0
+}
+
+train2color[which(apply(train2color[,(ncol(train2color) - length(cbclass$Color) + 1):ncol(train2color)], 1, sum) == 0), "OtherColor"] = 1
+
+
+rm(cbbrindle, cbc1, cbc2, cbclass, cbmerle, cbmulti, cbpoint, cbsolid, cbsummary, cbtabby, cbtricolor, i)
+
+
+
+
+
+
+
 
 
 
@@ -327,14 +412,15 @@ rm(temp, temp2, temp3, temp4, temp5, bb1, bb2, bbdom, bbmix, bbpab, bbpure, i, b
 #** Merge Cleaned Data for Stokesy **#
 #************************************#
 
-t3a    = merge(train2dep[, !names(train2dep) == "OutcomeType"], train2type[,  !names(train2type) == "AnimalType"],                               by = "AnimalID")
-t3b    = merge(t3a,                                             train2name[,  !names(train2name) == "Name"],                                     by = "AnimalID")
-t3c    = merge(t3b,                                             train2age[,   !names(train2age)  == "AgeuponOutcome"],                           by = "AnimalID")
-t3d    = merge(t3c,                                             train2sex[,   !names(train2sex)  == "SexuponOutcome"],                           by = "AnimalID")
-t3e    = merge(t3d,                                             train2date[,  !names(train2date) == "DateTime"],                                 by = "AnimalID")
-train3 = merge(t3e,                                             train2breed[, !names(train2breed) %in% c("Breed", "mix", "parenta", "parentb")], by = "AnimalID") 
+t3a    = merge(train2dep[, !names(train2dep) == "OutcomeType"], train2type[,  !names(train2type) == "AnimalType"],                                    by = "AnimalID")
+t3b    = merge(t3a,                                             train2name[,  !names(train2name) == "Name"],                                          by = "AnimalID")
+t3c    = merge(t3b,                                             train2age[,   !names(train2age)  == "AgeuponOutcome"],                                by = "AnimalID")
+t3d    = merge(t3c,                                             train2sex[,   !names(train2sex)  == "SexuponOutcome"],                                by = "AnimalID")
+t3e    = merge(t3d,                                             train2date[,  !names(train2date) == "DateTime"],                                      by = "AnimalID")
+t3f    = merge(t3e,                                             train2breed[, !names(train2breed) %in% c("Breed", "mix", "parenta", "parentb")],      by = "AnimalID") 
+train3 = merge(t3f,                                             train2color[, !names(train2color) %in% c("AnimalType", "Color", "color1", "color2")], by = "AnimalID")
 
-rm(t3a, t3b, t3c, t3d, t3e)
+rm(t3a, t3b, t3c, t3d, t3e, t3f)
 
 
 
@@ -353,8 +439,9 @@ rm(t3a, t3b, t3c, t3d, t3e)
 #** Playing with Distributions **#
 
 
-temp = data.frame(unique(train2[,c("Breed", "Color")]))
-
+temp = train3[which(is.na(train3$age) == TRUE),]
+temp = train3[which(is.na(train3$gender) == TRUE),]
+temp = train3[which(is.na(train3$intact) == TRUE),]
 
 
 temp = merge(train2age[, c("AnimalID", "age")], train2sex[, c("AnimalID", "gender", "intact")], by = "AnimalID", all = TRUE)
