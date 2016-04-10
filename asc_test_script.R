@@ -23,6 +23,10 @@ sample = read.csv("sample_submission.csv.gz", stringsAsFactors=FALSE)
 test   = read.csv("test.csv.gz", stringsAsFactors=FALSE)
 train  = read.csv("train.csv.gz", stringsAsFactors=FALSE)
 
+#** User Parameters **#
+
+bcount = 200     # minimum occurrences of breed within training set for breed to become an independent variable
+
 #**************************#
 #** Data Prep            **#
 #**                      **#
@@ -285,10 +289,33 @@ temp = aggregate(cbind(pure, parent2, mix, domestic) ~ 1, data = bb3, sum)
 
 bb4 = data.frame(Breed = bb3$Breed, bcount = bb3$pure + bb3$parent2 + bb3$mix + bb3$domestic, stringsAsFactors = FALSE)
 bb4 = bb4[order(bb4$bcount, decreasing = TRUE),]
+bbclass = data.frame(Breed = c(bb4[which(bb4$bcount >= bcount), "Breed"], "Other"), bclass = NA_character_, stringsAsFactors = FALSE)
+bbclass$bclass = gsub(" ", "", bbclass$Breed)
+
+train2breed = data.frame(train2breed, matrix(NA_integer_, ncol = length(bbclass$bclass), nrow = length(train2breed$AnimalID)), stringsAsFactors = FALSE)
+colnames(train2breed)[(ncol(train2breed) - length(bbclass$Breed) + 1):ncol(train2breed)] = bbclass$bclass
+
+for (i in (ncol(train2breed) - length(bbclass$Breed) + 1):ncol(train2breed))
+{
+  train2breed[which(names(train2breed)[i] == gsub(" ", "", train2breed$Breed)), i] = 1
+  train2breed[which(names(train2breed)[i] == gsub(" ", "", train2breed$mix)), i] = 1
+  train2breed[which(names(train2breed)[i] == gsub(" ", "", train2breed$parenta)), i] = 1
+  train2breed[which(names(train2breed)[i] == gsub(" ", "", train2breed$parentb)), i] = 1
+}
+for (i in (ncol(train2breed) - length(bbclass$Breed) + 1):ncol(train2breed))
+{
+  train2breed[which(is.na(train2breed[,i]) == TRUE),i] = 0
+}
+
+train2breed[which(apply(train2breed[,(ncol(train2breed) - length(bbclass$Breed) + 1):ncol(train2breed)], 1, sum) == 0), "Other"] = 1
+
+
+rm(temp, temp2, temp3, temp4, temp5, bb1, bb2, bbdom, bbmix, bbpab, bbpure, i, bb3, bb4, bbclass)
 
 
 
-rm(temp, temp2, temp3, temp4, temp5, bb1, bb2, bbdom, bbmix, bbpab, bbpure)
+
+
 
 #** Convert Color to Buckets **#
 
@@ -300,13 +327,14 @@ rm(temp, temp2, temp3, temp4, temp5, bb1, bb2, bbdom, bbmix, bbpab, bbpure)
 #** Merge Cleaned Data for Stokesy **#
 #************************************#
 
-t3a    = merge(train2dep[, !names(train2dep) == "OutcomeType"], train2type[, !names(train2type) == "AnimalType"],     by = "AnimalID")
-t3b    = merge(t3a,                                             train2name[, !names(train2name) == "Name"],           by = "AnimalID")
-t3c    = merge(t3b,                                             train2age[,  !names(train2age)  == "AgeuponOutcome"], by = "AnimalID")
-t3d    = merge(t3c,                                             train2sex[,  !names(train2sex)  == "SexuponOutcome"], by = "AnimalID")
-train3 = merge(t3d,                                             train2date[, !names(train2date) == "DateTime"],       by = "AnimalID")
- 
-rm(t3a, t3b, t3c, t3d)
+t3a    = merge(train2dep[, !names(train2dep) == "OutcomeType"], train2type[,  !names(train2type) == "AnimalType"],                               by = "AnimalID")
+t3b    = merge(t3a,                                             train2name[,  !names(train2name) == "Name"],                                     by = "AnimalID")
+t3c    = merge(t3b,                                             train2age[,   !names(train2age)  == "AgeuponOutcome"],                           by = "AnimalID")
+t3d    = merge(t3c,                                             train2sex[,   !names(train2sex)  == "SexuponOutcome"],                           by = "AnimalID")
+t3e    = merge(t3d,                                             train2date[,  !names(train2date) == "DateTime"],                                 by = "AnimalID")
+train3 = merge(t3e,                                             train2breed[, !names(train2breed) %in% c("Breed", "mix", "parenta", "parentb")], by = "AnimalID") 
+
+rm(t3a, t3b, t3c, t3d, t3e)
 
 
 
